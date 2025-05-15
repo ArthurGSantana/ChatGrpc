@@ -1,0 +1,6 @@
+@Chat_BFF_HostAddress = http://localhost:5005
+
+GET {{Chat_BFF_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
