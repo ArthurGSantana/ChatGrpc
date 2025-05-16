@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+option csharp_namespace = "Chat-Service.Protos";
+
+package chat;
+
+// The chat service definition.
+service ChatService {
+  //Join Chat
+  rpc JoinChat (ChatRequest) returns (ChatResponse);
+
+  // Sends a message
+  rpc HandleMessage (stream MessageRequest) returns (stream MessageResponse);
+}
+
+// The request message containing the user's message.
+message ChatRequest {
+  string user_id = 1;
+}
+
+// The response message containing the server's response.
+message ChatResponse {
+  string response = 1;
+}
