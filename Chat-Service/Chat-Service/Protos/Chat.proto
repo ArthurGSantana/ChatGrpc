@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option csharp_namespace = "Chat-Service.Protos";
+option csharp_namespace = "Chat.Service.Protos";
 
 package chat;
 
@@ -20,5 +20,18 @@ message ChatRequest {
 
 // The response message containing the server's response.
 message ChatResponse {
-  string response = 1;
+  bool success = 1;
+  string message = 2;
+}
+
+// The request message containing the user's message.
+message MessageRequest {
+  string user_id = 1;
+  string message = 2;
+}
+
+// The response message containing the server's response.
+message MessageResponse {
+  string user_id = 1;
+  string message = 2;
 }
