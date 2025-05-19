@@ -14,16 +14,16 @@ describe('AppComponent', () => {
     expect(app).toBeTruthy();
   });
 
-  it(`should have the 'Chat-Front' title`, () => {
+  it(`should have the 'ChatFront' title`, () => {
     const fixture = TestBed.createComponent(AppComponent);
     const app = fixture.componentInstance;
-    expect(app.title).toEqual('Chat-Front');
+    expect(app.title).toEqual('ChatFront');
   });
 
   it('should render title', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, Chat-Front');
+    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, ChatFront');
   });
 });
