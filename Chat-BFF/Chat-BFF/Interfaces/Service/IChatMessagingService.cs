@@ -1,9 +1,14 @@
-using System;
-
 namespace Chat_BFF.Interfaces.Service;
 
 public interface IChatMessagingService
 {
+    /// <summary>
+    /// Adiciona um usuário à sala de chat
+    /// </summary>
+    /// <param name="userId">ID do usuário que está se juntando ao chat</param>
+    /// <param name="cancellationToken">Token de cancelamento para interromper as operações</param>
+    Task JoinAsync(string userId, CancellationToken cancellationToken);
+
     /// <summary>
     /// Inicia o serviço de mensagens e estabelece a conexão de streaming com o serviço gRPC
     /// </summary>

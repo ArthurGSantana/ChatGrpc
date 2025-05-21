@@ -25,6 +25,15 @@ builder.Services.AddWebSockets(options =>
 
 var grpcFreightUrl = builder.Configuration.GetSection("GrpcServices:ChatService").Value ?? "";
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        builder => builder
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader());
+});
+
 if (!string.IsNullOrEmpty(grpcFreightUrl))
 {
     builder.Services.AddSingleton<IChatClientService>(provider =>
@@ -42,11 +51,13 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseCors("AllowAll");
+
 app.UseHttpsRedirection();
 
 app.UseWebSockets();
 
-app.UseWhen(context => context.Request.Path.StartsWithSegments("/ws"), 
+app.UseWhen(context => context.Request.Path.StartsWithSegments("/ws"),
     appBuilder => appBuilder.UseMiddleware<WebSocketMiddleware>());
 
 app.MapControllers();

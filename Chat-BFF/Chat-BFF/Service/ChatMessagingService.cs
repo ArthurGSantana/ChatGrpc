@@ -32,6 +32,30 @@ public class ChatMessagingService : IChatMessagingService
         _logger = logger;
     }
 
+    // Método para iniciar o serviço de mensagens
+    // Este método é chamado quando o serviço é iniciado
+    // e deve ser chamado apenas uma vez durante o ciclo de vida do aplicativo
+    public async Task JoinAsync(string userId, CancellationToken cancellationToken)
+    {
+        var request = new ChatRequest
+        {
+            UserId = userId
+        };
+
+        try
+        {
+            // Envia o pedido de entrada para o serviço gRPC
+            var response = await _chatClientService.JoinChatAsync(request, cancellationToken);
+
+            _logger.LogInformation("User {UserId} joined chat successfully", userId);
+        }
+        catch (RpcException ex)
+        {
+            _logger.LogError(ex, "Error joining chat for user {UserId}", userId);
+            throw;
+        }
+    }
+
     public Task StartAsync(CancellationToken cancellationToken)
     {
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
