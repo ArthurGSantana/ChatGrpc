@@ -1,0 +1,34 @@
+<div class="modal-backdrop">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Bem-vindo ao Chat</h5>
+      </div>
+      <div class="modal-body">
+        <form (ngSubmit)="onSubmit()">
+          <div class="form-group">
+            <label for="username">Como você quer ser chamado?</label>
+            <input
+              type="text"
+              class="form-control"
+              id="username"
+              [(ngModel)]="username"
+              name="username"
+              placeholder="Digite seu nome"
+              required
+              autofocus
+            />
+            <div *ngIf="showError" class="text-danger mt-2">
+              Por favor, informe seu nome para entrar no chat.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="submit" class="btn btn-primary">
+              Entrar no Chat
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

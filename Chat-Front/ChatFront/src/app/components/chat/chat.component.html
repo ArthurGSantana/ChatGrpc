@@ -1,0 +1,68 @@
+<div class="chat-container">
+  <div class="chat-header">
+    <h3>Chat Global</h3>
+    <div class="connection-status">
+      <span [class.connected]="isConnected" [class.disconnected]="!isConnected">
+        {{ isConnected ? "Conectado" : "Desconectado" }}
+      </span>
+    </div>
+  </div>
+
+  <div class="chat-messages">
+    <div *ngIf="!isConnected" class="connection-error">      <div class="alert alert-warning">
+        <p><strong>Problema de conexão!</strong></p>
+        <p>
+          Não foi possível conectar ao servidor de chat. Aguarde enquanto
+          tentamos reconectar...
+        </p>
+        <button class="btn btn-sm btn-warning mt-2" (click)="testConnections()">
+          Diagnosticar problema de conexão
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="messages.length === 0 && isConnected" class="no-messages">
+      <p>Nenhuma mensagem ainda. Seja o primeiro a enviar!</p>
+    </div>
+
+    <div
+      *ngFor="let message of messages"
+      class="message"
+      [ngClass]="{
+        'my-message': message.sender === username,
+        'other-message': message.sender !== username
+      }"
+    >
+      <div class="message-header">
+        <strong>{{ message.sender }}</strong>
+        <small>{{ message.timestamp | date : "shortTime" }}</small>
+      </div>
+      <div class="message-content">
+        {{ message.content }}
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-input">
+    <form (ngSubmit)="sendMessage()" class="message-form">
+      <input
+        type="text"
+        [(ngModel)]="newMessage"
+        name="newMessage"
+        class="message-input"
+        placeholder="Digite sua mensagem..."
+        [disabled]="!isConnected"
+      />
+      <button
+        type="submit"
+        class="send-button"
+        [disabled]="!newMessage.trim() || !isConnected"
+      >
+        Enviar
+      </button>
+    </form>
+    <div *ngIf="!isConnected" class="connection-hint">
+      Aguardando conexão com o servidor...
+    </div>
+  </div>
+</div>

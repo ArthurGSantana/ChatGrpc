@@ -1,12 +1,36 @@
-import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { Component, OnInit } from '@angular/core';
+import { ChatComponent } from './components/chat/chat.component';
+import { NameDialogComponent } from './components/name-dialog/name-dialog.component';
+import { ChatService } from './services/chat.service';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  standalone: true,
+  imports: [CommonModule, NameDialogComponent, ChatComponent],
   templateUrl: './app.component.html',
-  styleUrl: './app.component.scss'
+  styleUrl: './app.component.scss',
+  providers: [ChatService]
 })
-export class AppComponent {
-  title = 'ChatFront';
+export class AppComponent implements OnInit {
+  showNameDialog = true;
+  joinChatError = false;
+  
+  constructor(private chatService: ChatService) {}
+  
+  ngOnInit(): void {}
+
+  onNameSubmitted(username: string): void {
+    this.chatService.joinChat(username).subscribe({
+      next: () => {
+        this.showNameDialog = false;
+        this.joinChatError = false;
+        this.chatService.connectWebSocket();
+      },
+      error: (error) => {
+        console.error('Error joining chat:', error);
+        this.joinChatError = true;
+      }
+    });
+  }
 }
