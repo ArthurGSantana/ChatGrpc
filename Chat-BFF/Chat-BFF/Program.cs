@@ -29,7 +29,8 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
         builder => builder
-            .AllowAnyOrigin()
+            .SetIsOriginAllowed(_ => true)
+            .AllowCredentials()
             .AllowAnyMethod()
             .AllowAnyHeader());
 });
@@ -51,11 +52,22 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseCors("AllowAll");
-
 app.UseHttpsRedirection();
 
 app.UseWebSockets();
+
+app.UseCors("AllowAll");
+
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/ws"))
+    {
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogInformation("WebSocket connection attempt: {Path}", context.Request.Path);
+        logger.LogInformation("WebSocket connection headers: {@Headers}", context.Request.Headers);
+    }
+    await next();
+});
 
 app.UseWhen(context => context.Request.Path.StartsWithSegments("/ws"),
     appBuilder => appBuilder.UseMiddleware<WebSocketMiddleware>());
