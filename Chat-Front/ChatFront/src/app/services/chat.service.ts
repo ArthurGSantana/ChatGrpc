@@ -35,7 +35,10 @@ export class ChatService {
       this.socket.close();
     }
 
-    this.socket = new WebSocket(this.wsUrl);
+    const wsUrlWithUserId = `${this.wsUrl}?userId=${encodeURIComponent(
+      this.userId
+    )}`;
+    this.socket = new WebSocket(wsUrlWithUserId);
 
     this.socket.onopen = () => {
       console.log('WebSocket connection established');
@@ -45,11 +48,16 @@ export class ChatService {
     this.socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        this.messagesSubject.next({
-          sender: message.sender,
-          content: message.content,
-          timestamp: new Date(message.timestamp),
-        });
+
+        if (message.type === 'connection') {
+          console.log('Connection confirmed:', message.message);
+        } else {
+          this.messagesSubject.next({
+            sender: message.userId || 'System',
+            content: message.message,
+            timestamp: new Date(message.timestamp),
+          });
+        }
       } catch (error) {
         console.error('Error parsing message:', error);
       }
@@ -69,9 +77,7 @@ export class ChatService {
   public sendMessage(content: string): void {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       const message = {
-        sender: this.userId,
-        content,
-        timestamp: new Date(),
+        message: content,
       };
       this.socket.send(JSON.stringify(message));
     } else {
@@ -95,30 +101,33 @@ export class ChatService {
    */
   public testWebSocketConnections(): void {
     const testUrls = [
-      'ws://localhost:5005',       // Raiz
-      'ws://localhost:5005/ws',    // Endpoint /ws
-      'ws://localhost:5005/chat',  // Endpoint /chat
-      'ws://localhost:5005/socket' // Endpoint /socket
+      'ws://localhost:5005', // Raiz
+      'ws://localhost:5005/ws', // Endpoint /ws
+      'ws://localhost:5005/chat', // Endpoint /chat
+      'ws://localhost:5005/socket', // Endpoint /socket
     ];
-    
+
     console.log('Testando diferentes URLs de WebSocket...');
-    
-    testUrls.forEach(url => {
+
+    testUrls.forEach((url) => {
       try {
         console.log(`Testando conexão em: ${url}`);
         const testSocket = new WebSocket(url);
-        
+
         testSocket.onopen = () => {
           console.log(`✅ Conexão bem-sucedida em: ${url}`);
           testSocket.close();
         };
-        
+
         testSocket.onerror = () => {
           console.log(`❌ Falha na conexão em: ${url}`);
         };
-        
+
         setTimeout(() => {
-          if (testSocket.readyState !== WebSocket.OPEN && testSocket.readyState !== WebSocket.CLOSED) {
+          if (
+            testSocket.readyState !== WebSocket.OPEN &&
+            testSocket.readyState !== WebSocket.CLOSED
+          ) {
             console.log(`⏱️ Tempo esgotado para: ${url}`);
             testSocket.close();
           }
