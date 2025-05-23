@@ -1,10 +1,8 @@
-using Chat.Service.Protos;
 using Chat_BFF.Grpc.Client;
 using Chat_BFF.Grpc.Interfaces;
 using Chat_BFF.Interfaces.Service;
-using Chat_BFF.Interfaces.WebSocketConfig;
 using Chat_BFF.Service;
-using Chat_BFF.WebSocketConfig;
+using Chat_BFF.SignalR;
 using Microsoft.AspNetCore.WebSockets;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,24 +13,21 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddControllers();
 
-builder.Services.AddSingleton<IWebSocketConnectionManager, WebSocketConnectionManager>();
 builder.Services.AddSingleton<IChatMessagingService, ChatMessagingService>();
 
-builder.Services.AddWebSockets(options =>
-{
-    options.KeepAliveInterval = TimeSpan.FromMinutes(2);
-});
-
-var grpcFreightUrl = builder.Configuration.GetSection("GrpcServices:ChatService").Value ?? "";
+builder.Services.AddSignalR();
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
         builder => builder
-            .AllowAnyOrigin()
-            .AllowAnyMethod()
-            .AllowAnyHeader());
+            .WithOrigins("http://localhost:4200")
+            .AllowAnyHeader()
+            .AllowCredentials());
 });
+
+
+var grpcFreightUrl = builder.Configuration.GetSection("GrpcServices:ChatService").Value ?? "";
 
 if (!string.IsNullOrEmpty(grpcFreightUrl))
 {
@@ -55,7 +50,7 @@ app.UseCors("AllowAll");
 
 app.UseHttpsRedirection();
 
-app.UseWebSockets();
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.UseWhen(context => context.Request.Path.StartsWithSegments("/ws"),
     appBuilder => appBuilder.UseMiddleware<WebSocketMiddleware>());
