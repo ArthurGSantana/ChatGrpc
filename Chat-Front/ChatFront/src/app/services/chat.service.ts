@@ -1,6 +1,14 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, Subject } from 'rxjs';
+import { HubConnection, HubConnectionBuilder } from '@microsoft/signalr';
+import {
+  BehaviorSubject,
+  catchError,
+  from,
+  Observable,
+  Subject,
+  tap,
+} from 'rxjs';
 
 export interface ChatMessage {
   sender: string;
@@ -21,111 +29,139 @@ export class ChatService {
   public connectionStatus$ = this.connectionStatusSubject.asObservable();
 
   private apiUrl = 'http://localhost:5005/api';
-  private wsUrl = 'ws://localhost:5005/ws';
+  private signalUrl = 'http://localhost:5005/hubs/chat';
 
-  constructor(private http: HttpClient) {}
+  private readonly _hubConnection: HubConnection;
+
+  constructor(private http: HttpClient) {
+    this._hubConnection = new HubConnectionBuilder()
+      .withUrl(this.signalUrl)
+      .withAutomaticReconnect()
+      .build();
+
+    // Monitora mudanças no estado da conexão
+    this._hubConnection.onclose(() => {
+      console.log('Connection closed');
+      this.connectionStatusSubject.next(false);
+    });
+
+    this._hubConnection.onreconnecting(() => {
+      console.log('Connection reconnecting');
+      this.connectionStatusSubject.next(false);
+    });
+
+    this._hubConnection.onreconnected(() => {
+      console.log('Connection reconnected');
+      this.connectionStatusSubject.next(true);
+    });
+  }
+
+  get hubConnection(): HubConnection {
+    return this._hubConnection;
+  }
 
   public joinChat(userId: string): Observable<any> {
     this.userId = userId;
     return this.http.post(`${this.apiUrl}/chat/join`, { userId });
   }
 
-  public connectWebSocket(): void {
-    if (this.socket) {
-      this.socket.close();
-    }
+  public connectChat(): Observable<void> {
+    console.log(`Current connection state: ${this._hubConnection.state}`);
 
-    this.socket = new WebSocket(this.wsUrl);
+    if (this._hubConnection.state !== 'Disconnected') {
+      console.log(
+        `Connection is already in ${this._hubConnection.state} state`
+      );
 
-    this.socket.onopen = () => {
-      console.log('WebSocket connection established');
-      this.connectionStatusSubject.next(true);
-    };
-
-    this.socket.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        this.messagesSubject.next({
-          sender: message.sender,
-          content: message.content,
-          timestamp: new Date(message.timestamp),
-        });
-      } catch (error) {
-        console.error('Error parsing message:', error);
+      // Se já está conectado, emitimos true para o status
+      if (this._hubConnection.state === 'Connected') {
+        this.connectionStatusSubject.next(true);
       }
-    };
 
-    this.socket.onclose = () => {
-      console.log('WebSocket connection closed');
-      this.connectionStatusSubject.next(false);
-    };
+      return new Observable<void>((observer) => {
+        if (this._hubConnection.state === 'Connected') {
+          observer.next();
+          observer.complete();
+        } else {
+          // Estamos em um estado intermediário, esperamos a conexão completar
+          const checkConnection = setInterval(() => {
+            if (this._hubConnection.state === 'Connected') {
+              clearInterval(checkConnection);
+              this.connectionStatusSubject.next(true);
+              observer.next();
+              observer.complete();
+            } else if (this._hubConnection.state === 'Disconnected') {
+              clearInterval(checkConnection);
+              this.connectionStatusSubject.next(false);
+              observer.error(new Error('Connection failed'));
+            }
+          }, 500);
+        }
+      });
+    }
 
-    this.socket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      this.connectionStatusSubject.next(false);
-    };
+    // Se está desconectado, iniciamos a conexão
+    return from(this._hubConnection.start()).pipe(
+      tap(() => {
+        console.log('SignalR connection started successfully');
+        this.connectionStatusSubject.next(true);
+      }),
+      catchError((error) => {
+        console.error('Error starting SignalR connection:', error);
+        this.connectionStatusSubject.next(false);
+        throw error;
+      })
+    );
   }
 
-  public sendMessage(content: string): void {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      const message = {
-        sender: this.userId,
-        content,
-        timestamp: new Date(),
-      };
-      this.socket.send(JSON.stringify(message));
+  public sendMessage(messageText: string): void {
+    if (this._hubConnection.state === 'Connected') {
+      console.log(
+        `Sending message: userId=${this.userId}, message=${messageText}`
+      );
+
+      // O SignalR vai injetar o CancellationToken automaticamente
+      // Nós só precisamos fornecer os parâmetros userId e messageText
+      this._hubConnection
+        .invoke('SendMessage', this.userId, messageText)
+        .then(() => {
+          console.log('Message sent successfully');
+        })
+        .catch((err) => {
+          console.error('Failed to send message:', err);
+
+          // Informações de depuração
+          console.log('Parameters used:', {
+            userId: this.userId,
+            messageText: messageText,
+          });
+
+          // Como alternativa, poderíamos tentar converter em um objeto
+          console.log('Trying alternative approach...');
+          try {
+            // Em alguns casos, os hubs SignalR esperam os parâmetros em ordem específica
+            // e são sensíveis a null/undefined
+            if (!this.userId) {
+              console.warn('userId is empty, using fallback');
+            }
+
+            this._hubConnection
+              .invoke(
+                'SendMessage',
+                this.userId || 'anonymous-user',
+                messageText || ''
+              )
+              .catch((e) => console.error('Alternative also failed:', e));
+          } catch (alt_err) {
+            console.error('Error in alternative approach:', alt_err);
+          }
+        });
     } else {
-      console.error('WebSocket is not connected');
+      console.warn('Cannot send message: not connected to hub');
     }
   }
 
-  public disconnect(): void {
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
-    }
-  }
   public getUserId(): string {
     return this.userId;
-  }
-
-  /**
-   * Testa diferentes URLs de WebSocket para encontrar uma que funcione
-   * Útil para diagnosticar problemas de conexão
-   */
-  public testWebSocketConnections(): void {
-    const testUrls = [
-      'ws://localhost:5005',       // Raiz
-      'ws://localhost:5005/ws',    // Endpoint /ws
-      'ws://localhost:5005/chat',  // Endpoint /chat
-      'ws://localhost:5005/socket' // Endpoint /socket
-    ];
-    
-    console.log('Testando diferentes URLs de WebSocket...');
-    
-    testUrls.forEach(url => {
-      try {
-        console.log(`Testando conexão em: ${url}`);
-        const testSocket = new WebSocket(url);
-        
-        testSocket.onopen = () => {
-          console.log(`✅ Conexão bem-sucedida em: ${url}`);
-          testSocket.close();
-        };
-        
-        testSocket.onerror = () => {
-          console.log(`❌ Falha na conexão em: ${url}`);
-        };
-        
-        setTimeout(() => {
-          if (testSocket.readyState !== WebSocket.OPEN && testSocket.readyState !== WebSocket.CLOSED) {
-            console.log(`⏱️ Tempo esgotado para: ${url}`);
-            testSocket.close();
-          }
-        }, 5000);
-      } catch (error) {
-        console.error(`Erro ao testar ${url}:`, error);
-      }
-    });
   }
 }

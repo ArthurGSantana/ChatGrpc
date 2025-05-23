@@ -9,15 +9,13 @@
   </div>
 
   <div class="chat-messages">
-    <div *ngIf="!isConnected" class="connection-error">      <div class="alert alert-warning">
+    <div *ngIf="!isConnected" class="connection-error">
+      <div class="alert alert-warning">
         <p><strong>Problema de conexão!</strong></p>
         <p>
           Não foi possível conectar ao servidor de chat. Aguarde enquanto
           tentamos reconectar...
         </p>
-        <button class="btn btn-sm btn-warning mt-2" (click)="testConnections()">
-          Diagnosticar problema de conexão
-        </button>
       </div>
     </div>
 

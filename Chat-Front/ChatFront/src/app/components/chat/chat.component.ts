@@ -26,58 +26,101 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.subscriptions.push(
-      this.chatService.messages$.subscribe((message) => {
-        this.messages.push(message);
-        setTimeout(() => {
-          this.scrollToBottom();
-        }, 0);
-      })
-    );
+    // Configura o handler de mensagem independentemente do estado da conexão
+    this.setupMessageHandler();
 
-    this.subscriptions.push(
-      this.chatService.connectionStatus$.subscribe((status) => {
-        this.isConnected = status;
+    // Verifica o estado atual
+    const currentState = this.chatService.hubConnection.state;
+    console.log(`Current connection state: ${currentState}`);
 
-        if (!status && !this.reconnecting) {
+    if (currentState === 'Connected') {
+      this.isConnected = true;
+    } else if (currentState === 'Connecting') {
+      console.log('Connection is in progress, waiting for it to complete...');
+    } else if (
+      currentState === 'Disconnected' ||
+      currentState === 'Disconnecting'
+    ) {
+      console.log('Connection is not established yet');
+    }
+
+    // Sempre inscreve-se no status da conexão para ouvir mudanças de estado
+    this.subscriptions.push(
+      this.chatService.connectionStatus$.subscribe((connected) => {
+        console.log(
+          `Connection status changed to: ${
+            connected ? 'connected' : 'disconnected'
+          }`
+        );
+        this.isConnected = connected;
+
+        // Se acabou de desconectar, tenta reconectar automaticamente
+        if (!connected && !this.reconnecting) {
           this.attemptReconnection();
         }
       })
     );
   }
 
+  private setupMessageHandler(): void {
+    this.chatService.hubConnection.on(
+      'ReceiveMessage',
+      (userId: string, message: string) => {
+        const chatMessage: ChatMessage = {
+          sender: userId,
+          content: message,
+          timestamp: new Date(),
+        };
+        this.messages.push(chatMessage);
+        this.scrollToBottom();
+      }
+    );
+  }
+
   ngOnDestroy(): void {
     this.subscriptions.forEach((subscription) => subscription.unsubscribe());
-    this.chatService.disconnect();
   }
+
   sendMessage(): void {
     if (this.newMessage.trim() && this.isConnected) {
       this.chatService.sendMessage(this.newMessage.trim());
       this.newMessage = '';
     }
   }
-  
-  testConnections(): void {
-    console.log('Iniciando diagnóstico de conexão...');
-    this.chatService.testWebSocketConnections();
-  }
 
   private attemptReconnection(): void {
+    if (this.reconnecting) {
+      console.log('Already attempting to reconnect...');
+      return;
+    }
+
+    console.log('Starting reconnection attempts...');
     this.reconnecting = true;
 
     const reconnectSubscription = interval(3000)
-      .pipe(takeWhile(() => !this.isConnected, true))
+      .pipe(takeWhile(() => !this.isConnected && this.reconnecting, true))
       .subscribe({
         next: () => {
           if (!this.isConnected) {
-            console.log('Tentando reconectar ao servidor...');
-            this.chatService.connectWebSocket();
+            console.log('Attempting to reconnect...');
+            this.chatService.connectChat().subscribe({
+              next: () => {
+                console.log('Reconnection successful!');
+                this.reconnecting = false;
+              },
+              error: (err) => {
+                console.error('Reconnection attempt failed:', err);
+                // Continua tentando via interval
+              },
+            });
           } else {
+            console.log('Connection restored!');
             this.reconnecting = false;
             reconnectSubscription.unsubscribe();
           }
         },
         complete: () => {
+          console.log('Reconnection attempts completed');
           this.reconnecting = false;
         },
       });

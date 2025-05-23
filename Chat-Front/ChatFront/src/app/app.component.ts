@@ -10,27 +10,35 @@ import { ChatService } from './services/chat.service';
   imports: [CommonModule, NameDialogComponent, ChatComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
-  providers: [ChatService]
+  providers: [ChatService],
 })
 export class AppComponent implements OnInit {
   showNameDialog = true;
   joinChatError = false;
-  
+
   constructor(private chatService: ChatService) {}
-  
+
   ngOnInit(): void {}
 
   onNameSubmitted(username: string): void {
     this.chatService.joinChat(username).subscribe({
       next: () => {
-        this.showNameDialog = false;
         this.joinChatError = false;
-        this.chatService.connectWebSocket();
+        this.chatService.connectChat().subscribe({
+          next: () => {
+            console.log('Successfully connected to chat!');
+            this.showNameDialog = false;
+          },
+          error: (err) => {
+            console.error('Error connecting to chat:', err);
+            this.joinChatError = true;
+          },
+        });
       },
       error: (error) => {
         console.error('Error joining chat:', error);
         this.joinChatError = true;
-      }
+      },
     });
   }
 }
