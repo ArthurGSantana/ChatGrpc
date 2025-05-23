@@ -26,6 +26,9 @@ public class ChatService : ChatServiceBase
 
         _userConnections.Add(userId);
 
+        // Send welcome message to everyone
+        // BroadcastMessage("System", $"{userId} has joined the chat").ConfigureAwait(false);
+
         return Task.FromResult(new ChatResponse
         {
             Success = true,
@@ -34,28 +37,27 @@ public class ChatService : ChatServiceBase
     }
 
     public override async Task HandleMessage(
-        IAsyncStreamReader<MessageRequest> requestStream,
-        IServerStreamWriter<MessageResponse> responseStream,
-        ServerCallContext context)
+    IAsyncStreamReader<MessageRequest> requestStream,
+    IServerStreamWriter<MessageResponse> responseStream,
+    ServerCallContext context)
     {
-        // Extract user ID from headers or context metadata if needed
-        var userId = context.RequestHeaders.GetValue("user-id") ?? "anonymous";
+        string userId = null;
 
         // Register this client's stream for receiving messages
-        _connectedClients[userId] = responseStream;
+        // We'll update the userId once we receive the first message
 
         // Handle disconnection
         context.CancellationToken.Register(() =>
         {
-            _connectedClients.TryRemove(userId, out _);
-            _userConnections.Remove(userId);
+            if (userId != null)
+            {
+                _connectedClients.TryRemove(userId, out _);
+                _userConnections.Remove(userId);
 
-            // Announce departure
-            BroadcastMessage("System", $"{userId} has left the chat").ConfigureAwait(false);
+                // Announce departure
+                BroadcastMessage("System", $"{userId} has left the chat").ConfigureAwait(false);
+            }
         });
-
-        // Send welcome message to everyone
-        await BroadcastMessage("System", $"{userId} has joined the chat");
 
         // Process incoming messages
         try
@@ -64,6 +66,13 @@ public class ChatService : ChatServiceBase
             while (await requestStream.MoveNext(context.CancellationToken))
             {
                 var message = requestStream.Current;
+
+                // Use the userId from the message
+
+                // First message, set up the userId and register the client
+                userId = message.UserId;
+                _connectedClients[userId] = responseStream;
+
                 await BroadcastMessage(userId, message.Message);
             }
         }
@@ -73,7 +82,6 @@ public class ChatService : ChatServiceBase
             Console.WriteLine($"Error handling message stream: {ex.Message}");
         }
     }
-
     private async Task BroadcastMessage(string userId, string message)
     {
         var messageResponse = new MessageResponse
@@ -84,19 +92,24 @@ public class ChatService : ChatServiceBase
 
         // Create a list of sending tasks
         var sendingTasks = new List<Task>();
+        
+        var client = _connectedClients.FirstOrDefault(c => c.Key == userId);
+
+        // Envio de mensagem para o usuario atual pois no BFF o signalR esta enviando para todos os usuarios
+        try
+        {
+            sendingTasks.Add(client.Value.WriteAsync(messageResponse));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error sending message to {client.Key}: {ex.Message}");
+        }
 
         // Send message to all connected clients
-        foreach (var client in _connectedClients)
-        {
-            try
-            {
-                sendingTasks.Add(client.Value.WriteAsync(messageResponse));
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error sending message to {client.Key}: {ex.Message}");
-            }
-        }
+        // foreach (var client in _connectedClients)
+        // {
+
+        // }
 
         // Wait for all messages to be sent
         await Task.WhenAll(sendingTasks);

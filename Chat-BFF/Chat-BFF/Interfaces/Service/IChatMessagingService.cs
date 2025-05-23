@@ -10,6 +10,13 @@ public interface IChatMessagingService
     Task JoinAsync(string userId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Envia uma mensagem para o serviço gRPC
+    /// </summary>
+    /// <param name="userId">ID do usuário que está enviando a mensagem</param>
+    /// <param name="message">Texto da mensagem a ser enviada</param>
+    void SendMessage(string userId, string message);
+
+    /// <summary>
     /// Inicia o serviço de mensagens e estabelece a conexão de streaming com o serviço gRPC
     /// </summary>
     /// <param name="cancellationToken">Token de cancelamento para interromper as operações</param>

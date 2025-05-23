@@ -3,8 +3,9 @@ using System.Collections.Concurrent;
 using Chat.Service.Protos;
 using Chat_BFF.Grpc.Interfaces;
 using Chat_BFF.Interfaces.Service;
-using Chat_BFF.Interfaces.WebSocketConfig;
+using Chat_BFF.SignalR;
 using Grpc.Core;
+using Microsoft.AspNetCore.SignalR;
 
 namespace Chat_BFF.Service;
 
@@ -12,7 +13,7 @@ public class ChatMessagingService : IChatMessagingService
 {
     private readonly IChatClientService _chatClientService;
     private readonly ILogger<ChatMessagingService> _logger;
-    private readonly IWebSocketConnectionManager _webSocketManager;
+    private readonly IHubContext<ChatHub> _hubContext;
 
     private AsyncDuplexStreamingCall<MessageRequest, MessageResponse> _streamingCall;
     private CancellationTokenSource _cts;
@@ -24,12 +25,12 @@ public class ChatMessagingService : IChatMessagingService
 
     public ChatMessagingService(
         IChatClientService chatClientService,
-        IWebSocketConnectionManager webSocketManager,
-        ILogger<ChatMessagingService> logger)
+        ILogger<ChatMessagingService> logger,
+        IHubContext<ChatHub> hubContext)
     {
         _chatClientService = chatClientService;
-        _webSocketManager = webSocketManager;
         _logger = logger;
+        _hubContext = hubContext;
     }
 
     // Método para iniciar o serviço de mensagens
@@ -94,9 +95,23 @@ public class ChatMessagingService : IChatMessagingService
         }
     }
 
+    public void SendMessage(string userId, string messageText)
+    {
+        _logger.LogInformation("Received message from user {UserId}: {Message}", userId, messageText);
+
+        QueueMessageForSending(userId, messageText);
+    }
+
     // Método para enviar mensagem do usuário para o ChatService
     public void QueueMessageForSending(string userId, string messageText)
     {
+        // Verificar se o streaming está inicializado
+        if (_streamingCall == null)
+        {
+            _logger.LogWarning("Attempting to queue message without active streaming connection. Starting connection...");
+            StartAsync(CancellationToken.None).GetAwaiter().GetResult();
+        }
+
         var message = new MessageRequest
         {
             UserId = userId,
@@ -124,13 +139,9 @@ public class ChatMessagingService : IChatMessagingService
                 _logger.LogInformation("Received message from user {UserId}: {Message}",
                     response.UserId, response.Message);
 
-                // Enviar a mensagem para os clientes WebSocket
-                await _webSocketManager.SendMessageToAllAsync(new
-                {
-                    userId = response.UserId,
-                    message = response.Message,
-                    timestamp = DateTime.UtcNow
-                }, cancellationToken);
+                // Enviar a mensagem para os clientes signalR
+                await _hubContext.Clients.All.SendAsync("ReceiveMessage", response.UserId, response.Message, cancellationToken);
+
             }
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -143,6 +154,8 @@ public class ChatMessagingService : IChatMessagingService
 
     private async Task ProcessOutgoingMessagesAsync(CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Starting message processing task for outgoing messages");
+
         while (!cancellationToken.IsCancellationRequested)
         {
             try
@@ -153,6 +166,15 @@ public class ChatMessagingService : IChatMessagingService
                     if (_pendingMessages.TryGetValue(userId, out var queue) && queue.Count > 0)
                     {
                         var message = queue.Dequeue();
+                        _logger.LogInformation("Processing queued message for user {UserId}: {Message}",
+                            userId, message.Message);
+
+                        if (_streamingCall == null)
+                        {
+                            _logger.LogWarning("StreamingCall is null when trying to send message");
+                            continue;
+                        }
+
                         await _streamingCall.RequestStream.WriteAsync(message);
                         _logger.LogInformation("Message from user {UserId} sent to ChatService", userId);
                     }
@@ -167,6 +189,8 @@ public class ChatMessagingService : IChatMessagingService
                 await Task.Delay(1000, cancellationToken); // Delay maior em caso de erro
             }
         }
+
+        _logger.LogInformation("Outgoing message processing task completed");
     }
 
     public void Dispose()
