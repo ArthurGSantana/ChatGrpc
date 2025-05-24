@@ -19,6 +19,12 @@ public class ChatController : ControllerBase
         _logger = logger;
     }
 
+    /// <summary>
+    ///  Permite que um usuário se junte ao chat.
+    /// /// Recebe o ID do usuário e inicia o processo de conexão ao serviço de chat.
+    /// </summary>
+    /// <param name="joinChatRequest"></param>
+    /// <returns></returns>
     [HttpPost("join")]
     public async Task<IActionResult> Join(JoinChatRequest joinChatRequest)
     {
@@ -29,23 +35,8 @@ public class ChatController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error joining chat for user {UserId}", joinChatRequest.UserId);
+            _logger.LogError(ex, "Erro no usuário {UserId} ao entrar no chat!", joinChatRequest.UserId);
             return StatusCode(500, new { error = "Failed to join chat" });
-        }
-    }
-
-    [HttpGet("stop")]
-    public IActionResult Stop()
-    {
-        try
-        {
-            _chatMessagingService.StopAsync(CancellationToken.None);
-            return Ok(new { message = "Chat service stopped" });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error stopping chat service");
-            return StatusCode(500, new { error = "Failed to stop chat service" });
         }
     }
 }
