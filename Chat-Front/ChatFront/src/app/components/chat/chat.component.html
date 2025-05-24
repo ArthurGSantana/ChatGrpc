@@ -3,42 +3,55 @@
     <h3>Chat Global</h3>
     <div class="connection-status">
       <span [class.connected]="isConnected" [class.disconnected]="!isConnected">
-        {{ isConnected ? "Conectado" : "Desconectado" }}
+        {{ (isConnected ? "Conectado: " : "Desconectado: ") }}
+        <strong>{{ username }}</strong>
       </span>
     </div>
   </div>
 
   <div class="chat-messages">
-    <div *ngIf="!isConnected" class="connection-error">
-      <div class="alert alert-warning">
-        <p><strong>Problema de conexão!</strong></p>
-        <p>
-          Não foi possível conectar ao servidor de chat. Aguarde enquanto
-          tentamos reconectar...
-        </p>
+    @if (!isConnected) {
+      <div class="connection-error">
+        <div class="alert alert-warning">
+          <p><strong>Problema de conexão!</strong></p>
+          <p>
+            Não foi possível conectar ao servidor de chat. Aguarde enquanto
+            tentamos reconectar...
+          </p>
+        </div>
       </div>
-    </div>
+    }
 
-    <div *ngIf="messages.length === 0 && isConnected" class="no-messages">
-      <p>Nenhuma mensagem ainda. Seja o primeiro a enviar!</p>
-    </div>
+    @if (messages.length === 0 && isConnected) {
+      <div class="no-messages">
+        <p>Nenhuma mensagem ainda. Seja o primeiro a enviar!</p>
+      </div>
+    }
 
-    <div
-      *ngFor="let message of messages"
-      class="message"
-      [ngClass]="{
-        'my-message': message.sender === username,
-        'other-message': message.sender !== username
-      }"
-    >
-      <div class="message-header">
-        <strong>{{ message.sender }}</strong>
-        <small>{{ message.timestamp | date : "shortTime" }}</small>
-      </div>
-      <div class="message-content">
-        {{ message.content }}
-      </div>
-    </div>
+    @for (message of messages; track $index) {
+      @if (message.sender === "System") {
+        <div class="system-message">
+          <strong>{{ message.sender }}</strong>: {{ message.content }}
+        </div>
+      } @else {
+        <div
+          class="message"
+          [ngClass]="{
+            'my-message': message.sender === username,
+            'other-message': message.sender !== username
+          }"
+        >
+          <div class="message-header">
+            <strong>{{ message.sender }}</strong>
+            <small>{{ message.timestamp | date : "shortTime" }}</small>
+          </div>
+          <div class="message-content">
+            {{ message.content }}
+          </div>
+        </div>
+      }
+    }
+
   </div>
 
   <div class="chat-input">
@@ -59,8 +72,11 @@
         Enviar
       </button>
     </form>
-    <div *ngIf="!isConnected" class="connection-hint">
-      Aguardando conexão com o servidor...
-    </div>
+
+    @if (!isConnected) {
+      <div class="connection-hint">
+        Aguardando conexão com o servidor...
+      </div>
+    }
   </div>
 </div>

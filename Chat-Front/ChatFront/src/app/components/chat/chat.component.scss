@@ -28,11 +28,21 @@
 }
 
 .connected {
-  color: #4caf50;
+  color: #deffde;
 }
 
 .disconnected {
   color: #f44336;
+}
+
+.system-message {
+  display: flex;
+  justify-content: center;
+  background-color: #d8d8d8;
+  color: #565657;
+  padding: 5px;
+  border-radius: 5px;
+  margin: 10px 50px;
 }
 
 .chat-messages {
@@ -43,7 +53,8 @@
   flex-direction: column;
 }
 
-.no-messages, .connection-error {
+.no-messages,
+.connection-error {
   text-align: center;
   color: #666;
   margin: auto;
@@ -83,6 +94,7 @@
 .message-header {
   display: flex;
   justify-content: space-between;
+  column-gap: 5px;
   margin-bottom: 5px;
   font-size: 0.9em;
 }
@@ -140,11 +152,11 @@
     border-radius: 0;
     box-shadow: none;
   }
-  
+
   .chat-header {
     border-radius: 0;
   }
-  
+
   .message {
     max-width: 85%;
   }

@@ -110,7 +110,6 @@ export class ChatComponent implements OnInit, OnDestroy {
               },
               error: (err) => {
                 console.error('Reconnection attempt failed:', err);
-                // Continua tentando via interval
               },
             });
           } else {
