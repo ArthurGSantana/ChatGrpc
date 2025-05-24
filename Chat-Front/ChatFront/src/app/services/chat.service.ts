@@ -20,7 +20,6 @@ export interface ChatMessage {
   providedIn: 'root',
 })
 export class ChatService {
-  private socket: WebSocket | null = null;
   private userId = '';
   private messagesSubject = new Subject<ChatMessage>();
   private connectionStatusSubject = new BehaviorSubject<boolean>(false);
@@ -41,17 +40,17 @@ export class ChatService {
 
     // Monitora mudanças no estado da conexão
     this._hubConnection.onclose(() => {
-      console.log('Connection closed');
+      console.log('Conexão fechada');
       this.connectionStatusSubject.next(false);
     });
 
     this._hubConnection.onreconnecting(() => {
-      console.log('Connection reconnecting');
+      console.log('Reconectando...');
       this.connectionStatusSubject.next(false);
     });
 
     this._hubConnection.onreconnected(() => {
-      console.log('Connection reconnected');
+      console.log('Reconexão bem-sucedida');
       this.connectionStatusSubject.next(true);
     });
   }
@@ -66,12 +65,10 @@ export class ChatService {
   }
 
   public connectChat(): Observable<void> {
-    console.log(`Current connection state: ${this._hubConnection.state}`);
+    console.log(`Estado atual da conexão: ${this._hubConnection.state}`);
 
     if (this._hubConnection.state !== 'Disconnected') {
-      console.log(
-        `Connection is already in ${this._hubConnection.state} state`
-      );
+      console.log(`Conexão já está no estado ${this._hubConnection.state}`);
 
       // Se já está conectado, emitimos true para o status
       if (this._hubConnection.state === 'Connected') {
@@ -93,7 +90,7 @@ export class ChatService {
             } else if (this._hubConnection.state === 'Disconnected') {
               clearInterval(checkConnection);
               this.connectionStatusSubject.next(false);
-              observer.error(new Error('Connection failed'));
+              observer.error(new Error('Falha na conexão'));
             }
           }, 500);
         }
@@ -103,11 +100,11 @@ export class ChatService {
     // Se está desconectado, iniciamos a conexão
     return from(this._hubConnection.start()).pipe(
       tap(() => {
-        console.log('SignalR connection started successfully');
+        console.log('Conexão SignalR iniciada com sucesso');
         this.connectionStatusSubject.next(true);
       }),
       catchError((error) => {
-        console.error('Error starting SignalR connection:', error);
+        console.error('Erro ao iniciar conexão SignalR:', error);
         this.connectionStatusSubject.next(false);
         throw error;
       })
@@ -117,7 +114,7 @@ export class ChatService {
   public sendMessage(messageText: string): void {
     if (this._hubConnection.state === 'Connected') {
       console.log(
-        `Sending message: userId=${this.userId}, message=${messageText}`
+        `Enviando mensagem: usuário=${this.userId}, mensagem=${messageText}`
       );
 
       // O SignalR vai injetar o CancellationToken automaticamente
@@ -125,39 +122,39 @@ export class ChatService {
       this._hubConnection
         .invoke('SendMessage', this.userId, messageText)
         .then(() => {
-          console.log('Message sent successfully');
+          console.log('Mensagem enviada com sucesso');
         })
         .catch((err) => {
-          console.error('Failed to send message:', err);
+          console.error('Falha ao enviar mensagem:', err);
 
           // Informações de depuração
-          console.log('Parameters used:', {
+          console.log('Parâmetros utilizados:', {
             userId: this.userId,
             messageText: messageText,
           });
 
           // Como alternativa, poderíamos tentar converter em um objeto
-          console.log('Trying alternative approach...');
+          console.log('Tentando abordagem alternativa...');
           try {
             // Em alguns casos, os hubs SignalR esperam os parâmetros em ordem específica
             // e são sensíveis a null/undefined
             if (!this.userId) {
-              console.warn('userId is empty, using fallback');
+              console.warn('userId está vazio, usando valor padrão');
             }
 
             this._hubConnection
               .invoke(
                 'SendMessage',
-                this.userId || 'anonymous-user',
+                this.userId || 'usuário-anônimo',
                 messageText || ''
               )
-              .catch((e) => console.error('Alternative also failed:', e));
+              .catch((e) => console.error('Alternativa também falhou:', e));
           } catch (alt_err) {
-            console.error('Error in alternative approach:', alt_err);
+            console.error('Erro na abordagem alternativa:', alt_err);
           }
         });
     } else {
-      console.warn('Cannot send message: not connected to hub');
+      console.warn('Não é possível enviar mensagem: não conectado ao hub');
     }
   }
 
