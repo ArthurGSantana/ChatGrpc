@@ -17,12 +17,17 @@ builder.Services.AddSingleton<IChatMessagingService, ChatMessagingService>();
 
 builder.Services.AddSignalR();
 
+// Ler origens CORS da configuração
+var corsOriginsString = builder.Configuration["AllowedOrigins"] ?? "http://localhost:4200,http://chat-frontend";
+var corsOrigins = corsOriginsString.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
         builder => builder
-            .WithOrigins("http://localhost:4200")
+            .WithOrigins(corsOrigins)
             .AllowAnyHeader()
+            .AllowAnyMethod()
             .AllowCredentials());
 });
 
