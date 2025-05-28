@@ -9,6 +9,7 @@ import {
   Subject,
   tap,
 } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface ChatMessage {
   sender: string;
@@ -27,8 +28,8 @@ export class ChatService {
   public messages$ = this.messagesSubject.asObservable();
   public connectionStatus$ = this.connectionStatusSubject.asObservable();
 
-  private apiUrl = 'http://localhost:5005/api';
-  private signalUrl = 'http://localhost:5005/hubs/chat';
+  private apiUrl = environment.apiUrl;
+  private signalUrl = environment.signalRUrl;
 
   private readonly _hubConnection: HubConnection;
 
