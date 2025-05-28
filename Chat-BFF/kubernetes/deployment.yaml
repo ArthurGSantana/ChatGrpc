@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-bff
+  labels:
+    app: chat-bff
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chat-bff
+  template:
+    metadata:
+      labels:
+        app: chat-bff
+    spec:
+      containers:
+      - name: chat-bff
+        image: chatappbtsregistry.azurecr.io/chat-bff:v1
+        ports:
+        - containerPort: 80
+        env:
+        - name: ASPNETCORE_URLS
+          value: "http://+:80"
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: GrpcServices__ChatService
+          value: "http://chat-service"
+        - name: AllowedOrigins
+          valueFrom:
+            configMapKeyRef:
+              name: chat-bff-config
+              key: AllowedOrigins
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
