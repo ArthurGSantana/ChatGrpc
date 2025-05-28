@@ -14,7 +14,7 @@ RUN npm ci
 COPY . .
 
 # Construir a aplicação para produção
-RUN npm run build -- --configuration=production
+RUN npm run build:prod
 
 # Estágio de produção com Nginx para servir a aplicação
 FROM nginx:alpine
@@ -23,7 +23,7 @@ FROM nginx:alpine
 RUN rm -rf /usr/share/nginx/html/*
 
 # Copiar os arquivos de build da aplicação para o diretório do Nginx
-COPY --from=build /app/dist/chat-front /usr/share/nginx/html
+COPY --from=build /app/dist/chat-front/browser /usr/share/nginx/html
 
 # Copiar configuração personalizada do Nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
